@@ -145,6 +145,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         syncControllers()
         updateAutoHideTimer()
         Updater.shared.start()
+        if let old = Updater.takeUpdatedFromVersion(), old != Updater.currentVersion {
+            showUpdatedNote(from: old)
+        }
 
         if !UserDefaults.standard.bool(forKey: "hasShownSettings") {
             UserDefaults.standard.set(true, forKey: "hasShownSettings")
@@ -152,8 +155,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    /// Quitting MultiDock gives the user their macOS Dock back.
+    /// Quitting MultiDock gives the user their macOS Dock back, except when
+    /// it's relaunching into an update and would just hide it again.
     func applicationWillTerminate(_ notification: Notification) {
+        guard !Updater.shared.isRelaunching else { return }
         SystemDock.restore(restart: !isPoweringOff)
     }
 
@@ -240,6 +245,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: - Menu bar
 
+    /// A small bubble under the menu bar icon after an automatic update.
+    private func showUpdatedNote(from old: String) {
+        guard let button = statusItem.button else { return }
+        let popover = NSPopover()
+        popover.behavior = .transient
+        popover.contentViewController = NSHostingController(rootView:
+            VStack(alignment: .leading, spacing: 4) {
+                Text("MultiDock updated to \(Updater.currentVersion)").font(.headline)
+                Text("You were on \(old).").font(.caption).foregroundStyle(.secondary)
+            }
+            .padding(14))
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { popover.close() }
+    }
+
     private func setUpStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.image = NSImage(systemSymbolName: "dock.rectangle", accessibilityDescription: "MultiDock")
@@ -269,6 +289,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let r = Updater.shared.available {
             menu.addItem(BlockMenuItem(title: "Update to MultiDock \(r.version)…") { Updater.shared.offer(r) })
         }
+        let auto = BlockMenuItem(title: "Install Updates Automatically") { store.autoUpdate.toggle() }
+        auto.state = store.autoUpdate ? .on : .off
+        menu.addItem(auto)
         let check = BlockMenuItem(title: "Check for Updates…") { Updater.shared.check(userInitiated: true) }
         check.isEnabled = !Updater.shared.isInstalling
         menu.addItem(check)

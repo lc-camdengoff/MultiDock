@@ -353,6 +353,7 @@ struct GeneralSettingsView: View {
             Toggle("Launch at login", isOn: Binding(
                 get: { launchAtLogin },
                 set: { LaunchAtLogin.set($0); launchAtLogin = LaunchAtLogin.isEnabled }))
+            Toggle("Update automatically", isOn: $store.autoUpdate)
             Spacer()
             Text("v\(Updater.currentVersion)").foregroundStyle(.secondary)
             Button("Check for Updates") { Updater.shared.check(userInitiated: true) }

@@ -1,6 +1,7 @@
 import AppKit
 
-/// Checks GitHub Releases for a newer MultiDock and installs it in place.
+/// Checks GitHub Releases for a newer MultiDock and installs it in place,
+/// without asking when "Install updates automatically" is on.
 /// Each release carries MultiDock.zip (the app) and MultiDock.dmg (for new installs).
 final class Updater {
     static let shared = Updater()
@@ -19,6 +20,8 @@ final class Updater {
 
     private(set) var available: Release?
     private(set) var isInstalling = false
+    /// Set while quitting to relaunch into a new version.
+    private(set) var isRelaunching = false
     private var timer: Timer?
 
     func start() {
@@ -35,7 +38,9 @@ final class Updater {
             let release = data.flatMap(Self.parse)
             DispatchQueue.main.async {
                 self.available = release.flatMap { Self.isNewer($0.version) ? $0 : nil }
-                if let r = self.available {
+                if let r = self.available, !userInitiated, ConfigStore.shared.autoUpdate, !self.isInstalling {
+                    self.install(r, silently: true)
+                } else if let r = self.available {
                     // Only nag once per version unless asked.
                     let key = "notifiedVersion"
                     if userInitiated || UserDefaults.standard.string(forKey: key) != r.version {
@@ -67,6 +72,20 @@ final class Updater {
 
     // MARK: - UI
 
+    private func offerOnce(_ r: Release) {
+        let key = "notifiedVersion"
+        guard UserDefaults.standard.string(forKey: key) != r.version else { return }
+        UserDefaults.standard.set(r.version, forKey: key)
+        offer(r)
+    }
+
+    /// The version this copy was updated from, if it was just updated. Read once.
+    static func takeUpdatedFromVersion() -> String? {
+        let d = UserDefaults.standard
+        defer { d.removeObject(forKey: "updatedFromVersion") }
+        return d.string(forKey: "updatedFromVersion")
+    }
+
     func offer(_ r: Release) {
         let a = NSAlert()
         a.messageText = "MultiDock \(r.version) is available"
@@ -87,26 +106,39 @@ final class Updater {
 
     // MARK: - Install
 
-    private func install(_ r: Release) {
+    /// Silent installs never show errors; if one can't finish, the user is
+    /// offered the update the normal way instead (once per version).
+    private func install(_ r: Release, silently: Bool = false) {
         let appURL = Bundle.main.bundleURL
         // Running from the DMG or somewhere read-only: send them to the download page.
         guard FileManager.default.isWritableFile(atPath: appURL.deletingLastPathComponent().path),
               !appURL.path.hasPrefix("/Volumes/") else {
-            NSWorkspace.shared.open(r.pageURL)
+            if silently { offerOnce(r) } else { NSWorkspace.shared.open(r.pageURL) }
             return
         }
         isInstalling = true
-        URLSession.shared.downloadTask(with: r.zipURL) { file, _, error in
+        URLSession.shared.downloadTask(with: r.zipURL) { download, _, error in
+            // URLSession deletes the download when this handler returns, so keep a copy.
+            let file = download.flatMap { d -> URL? in
+                let keep = FileManager.default.temporaryDirectory.appendingPathComponent("MultiDock-\(UUID().uuidString).zip")
+                return (try? FileManager.default.moveItem(at: d, to: keep)) == nil ? nil : keep
+            }
             DispatchQueue.main.async {
                 defer { self.isInstalling = false }
                 guard let file else {
-                    self.alert("Update failed", error?.localizedDescription ?? "The download didn't finish.")
+                    // A silent download that fails just tries again at the next check.
+                    if !silently {
+                        self.alert("Update failed", error?.localizedDescription ?? "The download didn't finish.")
+                    }
                     return
                 }
+                defer { try? FileManager.default.removeItem(at: file) }
                 do {
                     try self.replaceApp(at: appURL, withZip: file, expecting: r.version)
+                    UserDefaults.standard.set(Self.currentVersion, forKey: "updatedFromVersion")
                     self.relaunch(appURL)
                 } catch {
+                    if silently { return self.offerOnce(r) }
                     self.alert("Update failed", "\(error.localizedDescription)\n\nYou can download it manually from GitHub instead.")
                     NSWorkspace.shared.open(r.pageURL)
                 }
@@ -151,6 +183,7 @@ final class Updater {
         p.executableURL = URL(fileURLWithPath: "/bin/sh")
         p.arguments = ["-c", "sleep 1; /usr/bin/open \"$0\"", appURL.path]
         try? p.run()
+        isRelaunching = true
         NSApp.terminate(nil)
     }
 }

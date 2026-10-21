@@ -26,7 +26,9 @@ Requires macOS 14 Sonoma or newer. Works on Apple Silicon and Intel Macs.
 
 ## Updates
 
-MultiDock checks this repo's [Releases](https://github.com/lc-camdengoff/MultiDock/releases) every few hours and offers to install new versions. You can also use **Check for Updates…** in the menu bar.
+MultiDock checks this repo's [Releases](https://github.com/lc-camdengoff/MultiDock/releases) every few hours and installs new versions on its own, then shows a short note under the menu bar icon. Turn off **Install Updates Automatically** in the menu bar (or **Update automatically** in Settings) to be asked first instead. You can also use **Check for Updates…** any time.
+
+If MultiDock can't replace itself (for example, the account can't write to Applications), it asks instead and links to the download.
 
 ## Development
 

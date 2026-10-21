@@ -56,6 +56,7 @@ final class ConfigStore: ObservableObject {
     @Published var autoHide: Bool { didSet { save() } }
     /// Hide the real macOS Dock so a MultiDock dock can take its place.
     @Published var hideSystemDock: Bool { didSet { save() } }
+    @Published var autoUpdate: Bool { didSet { save() } }
 
     private init() {
         displays = (d.data(forKey: "displayConfigs")).flatMap { try? JSONDecoder().decode([String: DisplayConfig].self, from: $0) } ?? [:]
@@ -64,6 +65,7 @@ final class ConfigStore: ObservableObject {
         magnification = d.object(forKey: "magnification") as? Bool ?? true
         autoHide = d.bool(forKey: "autoHide")
         hideSystemDock = d.bool(forKey: "hideSystemDock")
+        autoUpdate = d.object(forKey: "autoUpdate") as? Bool ?? true
     }
 
     private func save() {
@@ -72,6 +74,7 @@ final class ConfigStore: ObservableObject {
         d.set(magnification, forKey: "magnification")
         d.set(autoHide, forKey: "autoHide")
         d.set(hideSystemDock, forKey: "hideSystemDock")
+        d.set(autoUpdate, forKey: "autoUpdate")
         NotificationCenter.default.post(name: .multiDockConfigChanged, object: nil)
     }
 
