@@ -54,7 +54,7 @@ final class DockController {
     }
 
     func refreshItems() {
-        view.setItems(DockModel.shared.items(for: ConfigStore.shared.config(for: key)))
+        view.setItems(DockModel.shared.items(for: ConfigStore.shared.config(for: key), displayKey: key))
     }
 
     func reposition() {

@@ -11,7 +11,16 @@ final class MinimizedWindows {
         let id: Int
         let pid: pid_t
         let title: String
+        /// Where it was before it was minimized, in AppKit screen coordinates.
+        let frame: NSRect?
         fileprivate let element: AXUIElement
+
+        /// The display it was minimized from, if it can tell.
+        var screen: NSScreen? {
+            guard let f = frame else { return nil }
+            return NSScreen.screens.max { $0.frame.intersection(f).area < $1.frame.intersection(f).area }
+                .flatMap { $0.frame.intersects(f) ? $0 : nil }
+        }
     }
 
     /// In the order they were minimized, oldest first.
@@ -93,7 +102,8 @@ final class MinimizedWindows {
         windows.removeAll { w in w.pid == pid && !found.contains { CFEqual($0, w.element) } }
         for e in found where !windows.contains(where: { $0.pid == pid && CFEqual($0.element, e) }) {
             let title = attr(e, kAXTitleAttribute) as? String ?? ""
-            windows.append(Window(id: nextID, pid: pid, title: title.isEmpty ? "Untitled" : title, element: e))
+            windows.append(Window(id: nextID, pid: pid, title: title.isEmpty ? "Untitled" : title,
+                                  frame: frame(of: e), element: e))
             nextID += 1
         }
         if notify, windows.map(\.id) != before { onChange?() }
@@ -137,6 +147,18 @@ final class MinimizedWindows {
         return all.filter { attr($0, kAXSubroleAttribute) as? String == kAXStandardWindowSubrole as String }
     }
 
+    /// A minimized window still reports the frame it had on screen.
+    private func frame(of e: AXUIElement) -> NSRect? {
+        var pos = CGPoint.zero, size = CGSize.zero
+        guard let p = attr(e, kAXPositionAttribute), CFGetTypeID(p) == AXValueGetTypeID(),
+              AXValueGetValue(p as! AXValue, .cgPoint, &pos),
+              let s = attr(e, kAXSizeAttribute), CFGetTypeID(s) == AXValueGetTypeID(),
+              AXValueGetValue(s as! AXValue, .cgSize, &size) else { return nil }
+        // Accessibility uses top-left origin coordinates; AppKit uses bottom-left.
+        let top = NSScreen.screens.first?.frame.maxY ?? 0
+        return NSRect(x: pos.x, y: top - pos.y - size.height, width: size.width, height: size.height)
+    }
+
     private func isMinimized(_ e: AXUIElement) -> Bool { attr(e, kAXMinimizedAttribute) as? Bool == true }
 
     private func attr(_ e: AXUIElement, _ name: String) -> CFTypeRef? {
@@ -144,4 +166,8 @@ final class MinimizedWindows {
         AXUIElementCopyAttributeValue(e, name as CFString, &v)
         return v
     }
+}
+
+private extension NSRect {
+    var area: CGFloat { isNull ? 0 : width * height }
 }

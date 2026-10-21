@@ -164,7 +164,8 @@ final class DockModel {
 
     // MARK: - Assemble one display's dock
 
-    func items(for config: DisplayConfig) -> [DockItem] {
+    /// `displayKey` is the display this dock is on, for its minimized windows.
+    func items(for config: DisplayConfig, displayKey: String) -> [DockItem] {
         let running = NSWorkspace.shared.runningApplications.filter {
             $0.activationPolicy == .regular && $0.bundleIdentifier != Bundle.main.bundleIdentifier
         }
@@ -198,7 +199,11 @@ final class DockModel {
         }
 
         var tail = kept.filter { $0.kind == .folder }
+        // A window's tile goes on the dock of the display it was minimized
+        // from; if that display has no dock (or it can't tell), on every dock.
+        let docked = Set(NSScreen.screens.filter(Displays.isEnabled).map(Displays.key))
         tail += MinimizedWindows.shared.windows.compactMap { w -> DockItem? in
+            if let key = w.screen.map(Displays.key), docked.contains(key), key != displayKey { return nil }
             guard let app = NSRunningApplication(processIdentifier: w.pid), let url = app.bundleURL else { return nil }
             return DockItem(kind: .window, url: url, bundleID: app.bundleIdentifier, name: w.title, windowID: w.id)
         }
