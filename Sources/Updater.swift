@@ -1,4 +1,5 @@
 import AppKit
+import Security
 
 /// Checks GitHub Releases for a newer MultiDock and installs it in place,
 /// without asking when "Install updates automatically" is on.
@@ -163,8 +164,26 @@ final class Updater {
               bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String == version else {
             throw UpdateError(errorDescription: "The downloaded file isn't the expected MultiDock version.")
         }
+        try verifySignature(of: newApp)
         try? run("/usr/bin/xattr", ["-dr", "com.apple.quarantine", newApp.path])
         _ = try fm.replaceItemAt(appURL, withItemAt: newApp)
+    }
+
+    /// When this copy is signed with MultiDock's certificate, only accept an
+    /// update signed with the same one. Ad hoc builds have nothing to compare.
+    private func verifySignature(of app: URL) throws {
+        var me: SecCode?, myStatic: SecStaticCode?, info: CFDictionary?
+        guard SecCodeCopySelf([], &me) == errSecSuccess, let me,
+              SecCodeCopyStaticCode(me, [], &myStatic) == errSecSuccess, let myStatic,
+              SecCodeCopySigningInformation(myStatic, SecCSFlags(rawValue: kSecCSSigningInformation), &info) == errSecSuccess,
+              let certs = (info as? [String: Any])?[kSecCodeInfoCertificates as String] as? [Any], !certs.isEmpty else { return }
+
+        var requirement: SecRequirement?, update: SecStaticCode?
+        guard SecCodeCopyDesignatedRequirement(myStatic, [], &requirement) == errSecSuccess, let requirement,
+              SecStaticCodeCreateWithPath(app as CFURL, [], &update) == errSecSuccess, let update,
+              SecStaticCodeCheckValidity(update, SecCSFlags(rawValue: kSecCSCheckAllArchitectures), requirement) == errSecSuccess else {
+            throw UpdateError(errorDescription: "The download isn't signed by MultiDock.")
+        }
     }
 
     private func run(_ tool: String, _ args: [String]) throws {

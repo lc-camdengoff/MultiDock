@@ -10,4 +10,11 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      # Signs with a throwaway certificate to check the release signing steps.
+      - name: Sign with a test certificate
+        run: |
+          tools/make_signing_cert.sh "$RUNNER_TEMP/test.p12"
+          tools/import_signing_cert.sh "$RUNNER_TEMP/test.p12" "$(cat "$RUNNER_TEMP/test.p12.password")"
       - run: ./build.sh
+      - name: Show signature
+        run: codesign -d -r- build/MultiDock.app

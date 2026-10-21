@@ -25,6 +25,18 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
+      - name: Import signing certificate
+        env:
+          P12: ${{ secrets.MULTIDOCK_CERT_P12 }}
+          PASSWORD: ${{ secrets.MULTIDOCK_CERT_PASSWORD }}
+        run: |
+          if [[ -z "$P12" ]]; then
+            echo "::error::Missing the MULTIDOCK_CERT_P12 secret. Run tools/make_signing_cert.sh --upload once on your Mac."
+            exit 1
+          fi
+          print -r -- "$P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          tools/import_signing_cert.sh "$RUNNER_TEMP/cert.p12" "$PASSWORD"
+        shell: zsh {0}
       - name: Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

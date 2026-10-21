@@ -12,6 +12,10 @@ if [[ -z "$VERSION" ]]; then
   echo "usage: ./release.sh <version> [release notes]" >&2
   exit 1
 fi
+if [[ -z "$SIGN_IDENTITY" ]]; then
+  echo "Releases must be signed with MultiDock's certificate. Use Actions → Release on GitHub." >&2
+  exit 1
+fi
 if [[ -n "$(git status --porcelain)" ]]; then
   echo "Commit or stash your changes first." >&2
   exit 1

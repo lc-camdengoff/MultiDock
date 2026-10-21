@@ -17,5 +17,8 @@ lipo -create build/obj/MultiDock-arm64 build/obj/MultiDock-x86_64 -output "$APP/
 cp Info.plist "$APP/Contents/Info.plist"
 [[ -f AppIcon.icns ]] && cp AppIcon.icns "$APP/Contents/Resources/"
 
-codesign --force --sign - "$APP"
+# SIGN_IDENTITY is MultiDock's signing certificate (set in CI); without it
+# the app is signed ad hoc, which is fine for trying out local builds.
+codesign --force --sign "${SIGN_IDENTITY:--}" "$APP"
+codesign --verify --strict "$APP"
 echo "Built $PWD/$APP"

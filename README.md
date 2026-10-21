@@ -39,6 +39,8 @@ If MultiDock can't replace itself (for example, the account can't write to Appli
 ./release.sh 1.1 "What changed"    # bump version, tag, push, publish a GitHub release
 ```
 
+Releases are signed with MultiDock's own certificate so macOS keeps its Accessibility permission across updates, and the updater only installs downloads signed with it. Set it up once on your Mac with `tools/make_signing_cert.sh --upload` (needs `gh`); it saves the certificate to `~/MultiDock-signing.p12` and stores it as GitHub secrets. Keep that file: a new certificate means everyone has to allow Accessibility again. Releases then go through the Release workflow.
+
 You can also release without a Mac: **Actions → Release → Run workflow** on GitHub runs `release.sh` on a macOS runner. Every push is compiled by the **Build** workflow.
 
 Building only needs the Xcode command line tools. There's no Xcode project; `build.sh` calls `swiftc` directly.
