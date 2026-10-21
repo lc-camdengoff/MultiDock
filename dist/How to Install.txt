@@ -1,0 +1,59 @@
+MultiDock — a dock on every monitor
+====================================
+
+INSTALL (about a minute)
+
+1. Drag MultiDock into the Applications folder (right here in this window).
+
+2. Open Applications and double-click MultiDock.
+   macOS will say it "could not verify" MultiDock. That's normal: it's a
+   homemade app, not one from the App Store. Click Done.
+
+3. Open System Settings > Privacy & Security, scroll down to the
+   "Security" section, and click "Open Anyway" next to MultiDock.
+   Enter your password, then click Open Anyway again.
+
+   You only have to do this once.
+
+4. The MultiDock Settings window opens. Click a display, pick where its
+   dock goes, and choose its apps. Done!
+
+
+USING IT
+
+- MultiDock lives in the menu bar (the little dock icon at the top of the
+  screen). Use it to open Settings, turn on Auto-hide, or quit.
+- Out of the box it shows a dock on every display EXCEPT the one that already
+  has the normal macOS Dock. You can change that in Settings.
+- Each display can be on any edge (bottom, left, right, top) and centered or
+  in a corner.
+- Each display can mirror your normal Dock or have its own custom list of
+  apps and folders.
+- Right-click any icon for Hide, Quit, "Remove from This Dock", etc.
+  Right-click a running app and choose "Keep in This Dock" to add it.
+- Drop an app or folder onto an empty part of a dock to add it there.
+- Turn on "Launch at login" in Settings so it starts with your Mac.
+
+
+STEP 3 DIDN'T WORK?
+
+Open Terminal and paste this, then press Return:
+
+    xattr -dr com.apple.quarantine /Applications/MultiDock.app
+
+Then double-click MultiDock again.
+
+
+UPDATES
+
+MultiDock checks for new versions on its own and asks before installing.
+You can also click "Check for Updates…" in its menu bar menu.
+
+
+UNINSTALL
+
+Quit MultiDock from its menu bar icon, then drag it from Applications
+to the Trash.
+
+
+Requires macOS 14 Sonoma or newer. Works on Apple Silicon and Intel Macs.
