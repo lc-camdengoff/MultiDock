@@ -101,13 +101,13 @@ struct MiniDisplay: View {
     let size: CGSize
 
     var body: some View {
-        let enabled = config.enabled ?? !display.hasSystemDock
+        let enabled = config.enabled ?? Displays.enabledByDefault(hasSystemDock: display.hasSystemDock)
         ZStack(alignment: .topLeading) {
             RoundedRectangle(cornerRadius: 6)
                 .fill(selected ? Color.accentColor.opacity(0.22) : Color.secondary.opacity(0.15))
             RoundedRectangle(cornerRadius: 6)
                 .strokeBorder(selected ? Color.accentColor : Color.secondary.opacity(0.4), lineWidth: selected ? 2 : 1)
-            if display.hasSystemDock {
+            if display.hasSystemDock, !ConfigStore.shared.hideSystemDock {
                 let r = dockPillRect(in: size, edge: .bottom, alignment: .center)
                 RoundedRectangle(cornerRadius: 3).fill(Color.secondary.opacity(0.35))
                     .frame(width: r.width, height: r.height).offset(x: r.minX, y: r.minY)
@@ -134,14 +134,25 @@ struct DisplayDetailView: View {
     var body: some View {
         let config = store.binding(display.id)
         let enabled = Binding(
-            get: { config.wrappedValue.enabled ?? !display.hasSystemDock },
+            get: { config.wrappedValue.enabled ?? Displays.enabledByDefault(hasSystemDock: display.hasSystemDock) },
             set: { config.wrappedValue.enabled = $0 })
 
         HStack(alignment: .top, spacing: 28) {
             VStack(alignment: .leading, spacing: 12) {
                 Text(display.name).font(.title3.bold())
                 if display.hasSystemDock {
-                    Text("The macOS Dock is on this display.").font(.caption).foregroundStyle(.secondary)
+                    Toggle("Hide the macOS Dock", isOn: Binding(
+                        get: { store.hideSystemDock },
+                        set: { hide in
+                            store.hideSystemDock = hide
+                            // Hiding the real Dock means this display needs ours.
+                            if hide { config.wrappedValue.enabled = true }
+                        }))
+                    Text(store.hideSystemDock
+                         ? "The macOS Dock is hidden. It comes back when you turn this off or quit MultiDock."
+                         : "The macOS Dock is on this display. Hide it to use a MultiDock dock here instead.")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Toggle("Show a dock on this display", isOn: enabled)
 

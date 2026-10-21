@@ -137,6 +137,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         screenCheckTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             self?.syncControllers()
         }
+        // Undoes a hide left over from a crash, or re-applies one.
+        SystemDock.sync()
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(willPowerOff),
+                                                          name: NSWorkspace.willPowerOffNotification, object: nil)
         setUpStatusItem()
         syncControllers()
         updateAutoHideTimer()
@@ -147,6 +151,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             showSettings()
         }
     }
+
+    /// Quitting MultiDock gives the user their macOS Dock back.
+    func applicationWillTerminate(_ notification: Notification) {
+        SystemDock.restore(restart: !isPoweringOff)
+    }
+
+    private var isPoweringOff = false
+    @objc private func willPowerOff() { isPoweringOff = true }
 
     /// Opening the app again while it's running brings up Settings.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -159,6 +171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func screensChanged() { syncControllers(force: true) }
 
     @objc private func configChanged() {
+        SystemDock.sync()
         syncControllers()
         controllers.values.forEach { $0.refreshItems() }
         updateAutoHideTimer()
@@ -247,6 +260,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let autoHide = BlockMenuItem(title: "Auto-hide") { store.autoHide.toggle() }
         autoHide.state = store.autoHide ? .on : .off
         menu.addItem(autoHide)
+
+        let hideDock = BlockMenuItem(title: "Hide macOS Dock") { store.hideSystemDock.toggle() }
+        hideDock.state = store.hideSystemDock ? .on : .off
+        menu.addItem(hideDock)
 
         menu.addItem(.separator())
         if let r = Updater.shared.available {

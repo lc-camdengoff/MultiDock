@@ -28,7 +28,8 @@ struct SavedItem: Codable, Hashable, Identifiable {
 }
 
 struct DisplayConfig: Codable, Equatable {
-    /// nil = default: on everywhere except the display with the real Dock.
+    /// nil = default: on everywhere except the display with the real Dock
+    /// (unless the real Dock is hidden).
     var enabled: Bool? = nil
     var edge: DockEdge = .bottom
     var alignment: DockAlignment = .center
@@ -53,6 +54,8 @@ final class ConfigStore: ObservableObject {
     @Published var iconSize: Double { didSet { save() } }
     @Published var magnification: Bool { didSet { save() } }
     @Published var autoHide: Bool { didSet { save() } }
+    /// Hide the real macOS Dock so a MultiDock dock can take its place.
+    @Published var hideSystemDock: Bool { didSet { save() } }
 
     private init() {
         displays = (d.data(forKey: "displayConfigs")).flatMap { try? JSONDecoder().decode([String: DisplayConfig].self, from: $0) } ?? [:]
@@ -60,6 +63,7 @@ final class ConfigStore: ObservableObject {
         iconSize = size > 0 ? size : 48
         magnification = d.object(forKey: "magnification") as? Bool ?? true
         autoHide = d.bool(forKey: "autoHide")
+        hideSystemDock = d.bool(forKey: "hideSystemDock")
     }
 
     private func save() {
@@ -67,6 +71,7 @@ final class ConfigStore: ObservableObject {
         d.set(iconSize, forKey: "iconSize")
         d.set(magnification, forKey: "magnification")
         d.set(autoHide, forKey: "autoHide")
+        d.set(hideSystemDock, forKey: "hideSystemDock")
         NotificationCenter.default.post(name: .multiDockConfigChanged, object: nil)
     }
 
@@ -118,7 +123,8 @@ enum Displays {
 
     /// The display the real Dock is on: the one whose usable area is inset
     /// at the bottom/left/right. Falls back to the primary display when the
-    /// Dock is auto-hidden (no inset anywhere).
+    /// Dock is auto-hidden (no inset anywhere), which is also where it stays
+    /// while MultiDock hides it.
     static func systemDockScreen() -> NSScreen? {
         NSScreen.screens.first { s in
             let f = s.frame, v = s.visibleFrame
@@ -130,7 +136,12 @@ enum Displays {
         systemDockScreen().map(id) == id(s)
     }
 
+    /// Whether a display gets a dock when the user hasn't said either way.
+    static func enabledByDefault(hasSystemDock: Bool) -> Bool {
+        !hasSystemDock || ConfigStore.shared.hideSystemDock
+    }
+
     static func isEnabled(_ s: NSScreen) -> Bool {
-        ConfigStore.shared.config(for: key(s)).enabled ?? !hasSystemDock(s)
+        ConfigStore.shared.config(for: key(s)).enabled ?? enabledByDefault(hasSystemDock: hasSystemDock(s))
     }
 }
