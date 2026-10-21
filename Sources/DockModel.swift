@@ -1,7 +1,7 @@
 import AppKit
 
 struct DockItem: Equatable {
-    enum Kind: Equatable { case app, folder, trash, divider }
+    enum Kind: Equatable { case app, folder, trash, divider, window }
 
     let kind: Kind
     var url: URL? = nil
@@ -10,12 +10,15 @@ struct DockItem: Equatable {
     var isRunning = false
     /// Kept in this dock (as opposed to only shown because it's running).
     var pinned = false
+    /// For a minimized window's tile (`url` is then its app).
+    var windowID: Int? = nil
 
     static let divider = DockItem(kind: .divider)
 
     /// Same identity = same tile, even if the running state differs.
     func sameTile(as other: DockItem) -> Bool {
         kind == other.kind && url == other.url && bundleID == other.bundleID && pinned == other.pinned
+            && windowID == other.windowID
     }
 }
 
@@ -40,6 +43,7 @@ final class DockModel {
                      NSWorkspace.didTerminateApplicationNotification] {
             nc.addObserver(self, selector: #selector(runningAppsChanged), name: name, object: nil)
         }
+        MinimizedWindows.shared.onChange = { [weak self] in self?.onChange?() }
         reloadPinned()
         // The Dock doesn't broadcast pref changes, so check now and then for
         // pins added or removed in the real Dock.
@@ -59,6 +63,8 @@ final class DockModel {
             return NSImage(named: NSImage.trashEmptyName) ?? NSImage()
         case .divider:
             return NSImage()
+        case .window:
+            return windowIcon(for: item)
         case .app, .folder:
             guard let path = item.url?.path else { return NSImage() }
             if let cached = iconCache[path] { return cached }
@@ -67,6 +73,30 @@ final class DockModel {
             iconCache[path] = img
             return img
         }
+    }
+
+    /// A minimized window's tile: its app's icon with a small window badge.
+    private func windowIcon(for item: DockItem) -> NSImage {
+        guard let url = item.url else { return NSImage() }
+        let key = url.path + "#window"
+        if let cached = iconCache[key] { return cached }
+        let appIcon = icon(for: DockItem(kind: .app, url: url))
+        let symbol = NSImage(systemSymbolName: "macwindow", accessibilityDescription: nil)?
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 56, weight: .semibold)
+                .applying(NSImage.SymbolConfiguration(paletteColors: [.white])))
+        let img = NSImage(size: NSSize(width: 256, height: 256), flipped: false) { r in
+            appIcon.draw(in: r.insetBy(dx: 24, dy: 24))
+            let badge = NSRect(x: r.maxX - 108, y: 10, width: 98, height: 98)
+            NSColor.black.withAlphaComponent(0.6).setFill()
+            NSBezierPath(roundedRect: badge, xRadius: 24, yRadius: 24).fill()
+            if let symbol {
+                let s = symbol.size
+                symbol.draw(in: NSRect(x: badge.midX - s.width / 2, y: badge.midY - s.height / 2, width: s.width, height: s.height))
+            }
+            return true
+        }
+        iconCache[key] = img
+        return img
     }
 
     // MARK: - Real Dock's pinned items
@@ -168,6 +198,10 @@ final class DockModel {
         }
 
         var tail = kept.filter { $0.kind == .folder }
+        tail += MinimizedWindows.shared.windows.compactMap { w -> DockItem? in
+            guard let app = NSRunningApplication(processIdentifier: w.pid), let url = app.bundleURL else { return nil }
+            return DockItem(kind: .window, url: url, bundleID: app.bundleIdentifier, name: w.title, windowID: w.id)
+        }
         if config.showTrash {
             tail.append(DockItem(kind: .trash, url: URL(fileURLWithPath: NSHomeDirectory() + "/.Trash"), name: "Trash"))
         }

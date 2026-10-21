@@ -22,7 +22,7 @@ Requires macOS 14 Sonoma or newer. Works on Apple Silicon and Intel Macs.
 - On the display with the macOS Dock, turn on **Hide the macOS Dock** to use a MultiDock dock there instead (also in the menu bar menu). Your Dock comes back when you turn it off or quit MultiDock.
 - Turn on **Keep windows out of the dock** in Settings so windows can't go under your docks, like the macOS Dock. MultiDock needs Accessibility permission for this (System Settings → Privacy & Security → Accessibility). If it's switched on there but MultiDock still asks, click **Reset Permission** in Settings and allow it again.
 - Each display can mirror your normal Dock or have its own **Custom** list of apps and folders.
-- Minimized windows go into their app's icon. Click the app to bring one back, or right-click it to pick a window (this needs Accessibility permission, the same as Keep windows out of the dock).
+- Minimized windows show up at the end of the dock as their app's icon with a small window badge; click one to bring it back. Clicking an app whose windows are all minimized, or right-clicking it to pick a window, also works. This needs Accessibility permission, the same as Keep windows out of the dock.
 - Right-click any icon for Hide, Quit, **Remove from This Dock** and more. Right-click a running app and choose **Keep in This Dock** to add it.
 - Drop an app or folder onto an empty part of a dock to add it.
 

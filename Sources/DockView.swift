@@ -412,7 +412,7 @@ final class DockView: NSView {
         guard let url = item.url else { return }
         switch item.kind {
         case .app:
-            if item.isRunning, let app = runningApp(item), MinimizedWindows.restoreIfAllMinimized(app) { return }
+            if item.isRunning, let app = runningApp(item), MinimizedWindows.shared.restoreIfAllMinimized(app) { return }
             if !item.isRunning, let id = item.bundleID {
                 bouncing[id] = Date()
                 startAnimating()
@@ -422,6 +422,8 @@ final class DockView: NSView {
             NSWorkspace.shared.openApplication(at: url, configuration: config)
         case .folder, .trash:
             NSWorkspace.shared.open(url)
+        case .window:
+            if let w = item.windowID.flatMap({ MinimizedWindows.shared.window(id: $0) }) { MinimizedWindows.shared.restore(w) }
         case .divider:
             break
         }
@@ -448,8 +450,8 @@ final class DockView: NSView {
         switch item.kind {
         case .app:
             if let app = runningApp(item) {
-                let minimized = MinimizedWindows.of(app)
-                for w in minimized { add(w.title) { MinimizedWindows.restore(w, in: app) } }
+                let minimized = MinimizedWindows.shared.windows(of: app)
+                for w in minimized { add(w.title) { MinimizedWindows.shared.restore(w) } }
                 if !minimized.isEmpty { menu.addItem(.separator()) }
                 add("Show") { [weak self] in self?.open(item) }
                 if app.isHidden { add("Unhide") { app.unhide() } } else { add("Hide") { app.hide() } }
@@ -475,6 +477,8 @@ final class DockView: NSView {
             keepOrRemove()
         case .trash:
             add("Open Trash") { [weak self] in self?.open(item) }
+        case .window:
+            add("Show \"\(item.name)\"") { [weak self] in self?.open(item) }
         case .divider:
             break
         }
@@ -499,7 +503,7 @@ final class DockView: NSView {
         let p = convert(sender.draggingLocation, from: nil)
         mouseA = geo.point(p).a
         startAnimating()
-        guard let i = index(at: p), items[i].kind != .folder else {
+        guard let i = index(at: p), items[i].kind != .folder, items[i].kind != .window else {
             setDropTarget(nil)
             updateLabel()
             // Dropping apps or folders on an empty part of the dock adds them to it.
@@ -522,7 +526,7 @@ final class DockView: NSView {
         let p = convert(sender.draggingLocation, from: nil)
         let urls = droppedURLs(sender)
         guard !urls.isEmpty else { return false }
-        guard let i = index(at: p), let target = items[i].url, items[i].kind != .folder else {
+        guard let i = index(at: p), let target = items[i].url, items[i].kind != .folder, items[i].kind != .window else {
             let addable = urls.filter { url in
                 var isDir: ObjCBool = false
                 return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) && isDir.boolValue
