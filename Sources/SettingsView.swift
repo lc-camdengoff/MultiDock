@@ -336,10 +336,28 @@ struct ItemRow: View {
 
 struct GeneralSettingsView: View {
     @ObservedObject private var store = ConfigStore.shared
+    @ObservedObject private var guardian = WindowGuard.shared
     @State private var size: Double = ConfigStore.shared.iconSize
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            row
+            HStack(spacing: 12) {
+                Toggle("Keep windows out of the dock", isOn: $store.keepWindowsClear)
+                if store.keepWindowsClear && !guardian.isTrusted {
+                    Text("Allow MultiDock in Privacy & Security → Accessibility to turn this on.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Button("Open Settings") { WindowGuard.openAccessibilitySettings() }
+                } else {
+                    Text("Moves windows that overlap a dock, like the macOS Dock does.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private var row: some View {
         HStack(alignment: .center, spacing: 24) {
             HStack {
                 Text("Icon size")

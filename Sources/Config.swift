@@ -57,6 +57,8 @@ final class ConfigStore: ObservableObject {
     /// Hide the real macOS Dock so a MultiDock dock can take its place.
     @Published var hideSystemDock: Bool { didSet { save() } }
     @Published var autoUpdate: Bool { didSet { save() } }
+    /// Move or shrink other apps' windows so they don't go under a dock.
+    @Published var keepWindowsClear: Bool { didSet { save() } }
 
     private init() {
         displays = (d.data(forKey: "displayConfigs")).flatMap { try? JSONDecoder().decode([String: DisplayConfig].self, from: $0) } ?? [:]
@@ -66,6 +68,7 @@ final class ConfigStore: ObservableObject {
         autoHide = d.bool(forKey: "autoHide")
         hideSystemDock = d.bool(forKey: "hideSystemDock")
         autoUpdate = d.object(forKey: "autoUpdate") as? Bool ?? true
+        keepWindowsClear = d.bool(forKey: "keepWindowsClear")
     }
 
     private func save() {
@@ -75,6 +78,7 @@ final class ConfigStore: ObservableObject {
         d.set(autoHide, forKey: "autoHide")
         d.set(hideSystemDock, forKey: "hideSystemDock")
         d.set(autoUpdate, forKey: "autoUpdate")
+        d.set(keepWindowsClear, forKey: "keepWindowsClear")
         NotificationCenter.default.post(name: .multiDockConfigChanged, object: nil)
     }
 

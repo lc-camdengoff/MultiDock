@@ -92,6 +92,21 @@ final class DockController {
         return NSRect(x: f.minX, y: f.minY, width: f.width, height: v.maxY - f.minY)
     }
 
+    /// The part of the screen windows should stay in so they don't cover this
+    /// dock: a strip along its edge as deep as the dock, like the macOS Dock.
+    var windowZone: WindowGuard.Zone {
+        var a = Self.usableArea(of: screen)
+        let f = panel.frame
+        let depth = view.backgroundDepth + 4
+        switch layout.edge {
+        case .bottom: a = NSRect(x: a.minX, y: f.minY + depth, width: a.width, height: a.maxY - f.minY - depth)
+        case .top: a.size.height = f.maxY - depth - a.minY
+        case .left: a = NSRect(x: f.minX + depth, y: a.minY, width: a.maxX - f.minX - depth, height: a.height)
+        case .right: a.size.width = f.maxX - depth - a.minX
+        }
+        return WindowGuard.Zone(screen: screen.frame, allowed: a, edge: layout.edge)
+    }
+
     func close() { panel.orderOut(nil) }
 
     func setShown(_ show: Bool, animated: Bool = true) {
@@ -157,6 +172,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         syncControllers()
         updateAutoHideTimer()
         Updater.shared.start()
+        // Auto-hidden docks don't hold space, just like the macOS Dock.
+        WindowGuard.shared.zones = { [weak self] in
+            guard let self, !ConfigStore.shared.autoHide else { return [] }
+            return self.controllers.values.map(\.windowZone)
+        }
+        WindowGuard.shared.sync()
         if let old = Updater.takeUpdatedFromVersion(), old != Updater.currentVersion {
             showUpdatedNote(from: old)
         }
@@ -185,13 +206,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: - Docks
 
-    @objc private func screensChanged() { syncControllers(force: true) }
+    @objc private func screensChanged() {
+        syncControllers(force: true)
+        WindowGuard.shared.sweep()
+    }
 
     @objc private func configChanged() {
         SystemDock.sync()
         syncControllers()
         controllers.values.forEach { $0.refreshItems() }
         updateAutoHideTimer()
+        WindowGuard.shared.sync()
     }
 
     private func layout(for screen: NSScreen) -> DockLayout {
@@ -292,6 +317,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let autoHide = BlockMenuItem(title: "Auto-hide") { store.autoHide.toggle() }
         autoHide.state = store.autoHide ? .on : .off
         menu.addItem(autoHide)
+
+        let keepClear = BlockMenuItem(title: "Keep Windows Out of the Dock") { store.keepWindowsClear.toggle() }
+        keepClear.state = store.keepWindowsClear ? .on : .off
+        menu.addItem(keepClear)
 
         let hideDock = BlockMenuItem(title: "Hide macOS Dock") { store.hideSystemDock.toggle() }
         hideDock.state = store.hideSystemDock ? .on : .off
