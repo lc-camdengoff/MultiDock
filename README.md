@@ -36,6 +36,8 @@ MultiDock checks this repo's [Releases](https://github.com/lc-camdengoff/MultiDo
 ./release.sh 1.1 "What changed"    # bump version, tag, push, publish a GitHub release
 ```
 
+You can also release without a Mac: **Actions → Release → Run workflow** on GitHub runs `release.sh` on a macOS runner. Every push is compiled by the **Build** workflow.
+
 Building only needs the Xcode command line tools. There's no Xcode project; `build.sh` calls `swiftc` directly.
 
 | File | What it does |

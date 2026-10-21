@@ -1,0 +1,36 @@
+# Publishes a new MultiDock version from GitHub instead of a Mac.
+# Actions → Release → Run workflow, then enter the version and notes.
+# Does the same thing as running ./release.sh locally.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version number, e.g. 1.2
+        required: true
+      notes:
+        description: Release notes
+        required: false
+
+permissions:
+  contents: write
+
+concurrency: release
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          ./release.sh "$VERSION" "${NOTES:-MultiDock $VERSION}"

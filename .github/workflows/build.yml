@@ -1,0 +1,13 @@
+# Compiles MultiDock on every push so build errors show up before a release.
+name: Build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./build.sh
