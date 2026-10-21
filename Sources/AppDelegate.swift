@@ -34,6 +34,8 @@ final class DockController {
     let view: DockView
     private(set) var shown = true
     private var lastInside = Date()
+    /// The screen area the dock was last placed in, to spot when it changes.
+    private(set) var placedIn = NSRect.zero
 
     init(screen: NSScreen, layout: DockLayout) {
         self.screen = screen
@@ -55,7 +57,8 @@ final class DockController {
 
     func reposition() {
         let s = view.preferredSize
-        let p = screen.visibleFrame
+        let p = Self.usableArea(of: screen)
+        placedIn = p
         let m: CGFloat = 4
         var o = NSPoint.zero
         switch layout.edge {
@@ -78,6 +81,15 @@ final class DockController {
             }
         }
         panel.setFrame(NSRect(origin: NSPoint(x: round(o.x), y: round(o.y)), size: s), display: true)
+    }
+
+    /// The screen minus the menu bar and the macOS Dock. While MultiDock hides
+    /// the Dock, macOS can still leave its space out of `visibleFrame`, so only
+    /// the menu bar is taken off then.
+    static func usableArea(of screen: NSScreen) -> NSRect {
+        let f = screen.frame, v = screen.visibleFrame
+        guard SystemDock.isHiddenByUs else { return v }
+        return NSRect(x: f.minX, y: f.minY, width: f.width, height: v.maxY - f.minY)
     }
 
     func close() { panel.orderOut(nil) }
@@ -200,7 +212,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let id = Displays.id(s)
             let layout = layout(for: s)
             if let c = controllers[id], c.layout == layout {
-                if force || c.screen.frame != s.frame || c.screen.visibleFrame != s.visibleFrame {
+                if force || c.placedIn != DockController.usableArea(of: s) {
                     c.screen = s
                     c.reposition()
                 }
