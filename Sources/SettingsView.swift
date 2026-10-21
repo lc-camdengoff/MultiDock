@@ -349,6 +349,8 @@ struct GeneralSettingsView: View {
                     Text("Allow MultiDock in Privacy & Security → Accessibility to turn this on.")
                         .font(.caption).foregroundStyle(.secondary)
                     Button("Open Settings") { WindowGuard.openAccessibilitySettings() }
+                    Button("Reset Permission") { guardian.resetPermission() }
+                        .help("Use this if MultiDock is already switched on in Accessibility but this still shows. It removes the old entry so you can allow MultiDock again.")
                 } else {
                     Text("Moves windows that overlap a dock, like the macOS Dock does.")
                         .font(.caption).foregroundStyle(.secondary)

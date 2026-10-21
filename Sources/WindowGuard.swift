@@ -48,6 +48,20 @@ final class WindowGuard: ObservableObject {
         if isTrusted { start() } else { waitForTrust() }
     }
 
+    /// Removes MultiDock's Accessibility entry and asks again. An entry left
+    /// from an older, differently signed copy can look switched on in System
+    /// Settings without working.
+    func resetPermission() {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+        p.arguments = ["reset", "Accessibility", Bundle.main.bundleIdentifier ?? "local.multidock"]
+        try? p.run()
+        p.waitUntilExit()
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
+        isTrusted = AXIsProcessTrustedWithOptions(options)
+        if isTrusted { start() } else { waitForTrust() }
+    }
+
     static func openAccessibilitySettings() {
         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
     }
