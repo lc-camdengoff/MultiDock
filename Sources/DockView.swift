@@ -412,6 +412,7 @@ final class DockView: NSView {
         guard let url = item.url else { return }
         switch item.kind {
         case .app:
+            if item.isRunning, let app = runningApp(item), MinimizedWindows.restoreIfAllMinimized(app) { return }
             if !item.isRunning, let id = item.bundleID {
                 bouncing[id] = Date()
                 startAnimating()
@@ -447,6 +448,9 @@ final class DockView: NSView {
         switch item.kind {
         case .app:
             if let app = runningApp(item) {
+                let minimized = MinimizedWindows.of(app)
+                for w in minimized { add(w.title) { MinimizedWindows.restore(w, in: app) } }
+                if !minimized.isEmpty { menu.addItem(.separator()) }
                 add("Show") { [weak self] in self?.open(item) }
                 if app.isHidden { add("Unhide") { app.unhide() } } else { add("Hide") { app.hide() } }
                 menu.addItem(.separator())
