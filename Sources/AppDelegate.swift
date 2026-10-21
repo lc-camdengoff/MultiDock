@@ -36,6 +36,8 @@ final class DockController {
     private var lastInside = Date()
     /// The screen area the dock was last placed in, to spot when it changes.
     private(set) var placedIn = NSRect.zero
+    /// Where the panel sits when the dock is showing.
+    private var homeFrame = NSRect.zero
 
     init(screen: NSScreen, layout: DockLayout) {
         self.screen = screen
@@ -80,7 +82,19 @@ final class DockController {
             case .end: o.x = p.maxX - s.width - m
             }
         }
-        panel.setFrame(NSRect(origin: NSPoint(x: round(o.x), y: round(o.y)), size: s), display: true)
+        homeFrame = NSRect(origin: NSPoint(x: round(o.x), y: round(o.y)), size: s)
+        panel.setFrame(shown ? homeFrame : hiddenFrame, display: true)
+    }
+
+    /// Where an auto-hidden dock waits: slid off its edge of the screen.
+    private var hiddenFrame: NSRect {
+        let d = view.backgroundDepth + 8
+        switch layout.edge {
+        case .bottom: return homeFrame.offsetBy(dx: 0, dy: -d)
+        case .top: return homeFrame.offsetBy(dx: 0, dy: d)
+        case .left: return homeFrame.offsetBy(dx: -d, dy: 0)
+        case .right: return homeFrame.offsetBy(dx: d, dy: 0)
+        }
     }
 
     /// The screen minus the menu bar and the macOS Dock. While MultiDock hides
@@ -96,7 +110,7 @@ final class DockController {
     /// dock: a strip along its edge as deep as the dock, like the macOS Dock.
     var windowZone: WindowGuard.Zone {
         var a = Self.usableArea(of: screen)
-        let f = panel.frame
+        let f = homeFrame
         let depth = view.backgroundDepth + 4
         switch layout.edge {
         case .bottom: a = NSRect(x: a.minX, y: f.minY + depth, width: a.width, height: a.maxY - f.minY - depth)
@@ -113,8 +127,12 @@ final class DockController {
         guard show != shown else { return }
         shown = show
         panel.ignoresMouseEvents = !show
+        // Slide in from the edge like the macOS Dock. It also fades, so the
+        // part past the edge never shows up on a display next to this one.
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = animated ? 0.18 : 0
+            ctx.duration = animated ? 0.22 : 0
+            ctx.timingFunction = CAMediaTimingFunction(name: show ? .easeOut : .easeIn)
+            panel.animator().setFrame(show ? homeFrame : hiddenFrame, display: true)
             panel.animator().alphaValue = show ? 1 : 0
         }
     }
