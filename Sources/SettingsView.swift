@@ -356,6 +356,17 @@ struct GeneralSettingsView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
+            HStack(spacing: 12) {
+                Toggle("Show window previews", isOn: $store.windowPreviews)
+                if store.windowPreviews && !WindowPreviews.isAllowed {
+                    Text("Allow MultiDock in Privacy & Security → Screen Recording, then quit and reopen MultiDock.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Button("Open Settings") { WindowPreviews.openScreenRecordingSettings() }
+                } else {
+                    Text("Minimized windows show a picture of the window instead of the app's icon, when macOS provides one.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
         }
     }
 

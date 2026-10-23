@@ -12,13 +12,15 @@ struct DockItem: Equatable {
     var pinned = false
     /// For a minimized window's tile (`url` is then its app).
     var windowID: Int? = nil
+    /// A minimized window's tile shows its picture instead of the app's icon.
+    var hasPreview = false
 
     static let divider = DockItem(kind: .divider)
 
     /// Same identity = same tile, even if the running state differs.
     func sameTile(as other: DockItem) -> Bool {
         kind == other.kind && url == other.url && bundleID == other.bundleID && pinned == other.pinned
-            && windowID == other.windowID
+            && windowID == other.windowID && hasPreview == other.hasPreview
     }
 }
 
@@ -43,7 +45,15 @@ final class DockModel {
                      NSWorkspace.didTerminateApplicationNotification] {
             nc.addObserver(self, selector: #selector(runningAppsChanged), name: name, object: nil)
         }
-        MinimizedWindows.shared.onChange = { [weak self] in self?.onChange?() }
+        MinimizedWindows.shared.onChange = { [weak self] in
+            let ids = Set(MinimizedWindows.shared.windows.map(\.id))
+            WindowPreviews.shared.keep(ids)
+            self?.iconCache = self?.iconCache.filter { key, _ in
+                !key.hasPrefix("preview#") || Int(key.dropFirst(8)).map(ids.contains) == true
+            } ?? [:]
+            self?.onChange?()
+        }
+        WindowPreviews.shared.onChange = { [weak self] in self?.onChange?() }
         reloadPinned()
         // The Dock doesn't broadcast pref changes, so check now and then for
         // pins added or removed in the real Dock.
@@ -64,6 +74,9 @@ final class DockModel {
         case .divider:
             return NSImage()
         case .window:
+            if item.hasPreview, let id = item.windowID, let preview = WindowPreviews.shared.cached(id) {
+                return previewIcon(preview, id: id, app: item)
+            }
             return windowIcon(for: item)
         case .app, .folder:
             guard let path = item.url?.path else { return NSImage() }
@@ -93,6 +106,31 @@ final class DockModel {
                 let s = symbol.size
                 symbol.draw(in: NSRect(x: badge.midX - s.width / 2, y: badge.midY - s.height / 2, width: s.width, height: s.height))
             }
+            return true
+        }
+        iconCache[key] = img
+        return img
+    }
+
+    /// A minimized window's tile with its picture: the window, with the
+    /// app's icon in the corner, like the macOS Dock.
+    private func previewIcon(_ preview: NSImage, id: Int, app item: DockItem) -> NSImage {
+        let key = "preview#\(id)"
+        if let cached = iconCache[key] { return cached }
+        let appIcon = icon(for: DockItem(kind: .app, url: item.url))
+        let img = NSImage(size: NSSize(width: 256, height: 256), flipped: false) { r in
+            let s = preview.size
+            let fit = min(236 / s.width, 236 / s.height)
+            let w = s.width * fit, h = s.height * fit
+            NSGraphicsContext.saveGraphicsState()
+            let shadow = NSShadow()
+            shadow.shadowBlurRadius = 8
+            shadow.shadowOffset = NSSize(width: 0, height: -3)
+            shadow.shadowColor = NSColor.black.withAlphaComponent(0.45)
+            shadow.set()
+            preview.draw(in: NSRect(x: r.midX - w / 2, y: r.midY - h / 2, width: w, height: h))
+            NSGraphicsContext.restoreGraphicsState()
+            appIcon.draw(in: NSRect(x: r.maxX - 104, y: 0, width: 104, height: 104))
             return true
         }
         iconCache[key] = img
@@ -205,7 +243,8 @@ final class DockModel {
         tail += MinimizedWindows.shared.windows.compactMap { w -> DockItem? in
             if let key = w.screen.map(Displays.key), docked.contains(key), key != displayKey { return nil }
             guard let app = NSRunningApplication(processIdentifier: w.pid), let url = app.bundleURL else { return nil }
-            return DockItem(kind: .window, url: url, bundleID: app.bundleIdentifier, name: w.title, windowID: w.id)
+            return DockItem(kind: .window, url: url, bundleID: app.bundleIdentifier, name: w.title, windowID: w.id,
+                            hasPreview: WindowPreviews.shared.image(for: w) != nil)
         }
         if config.showTrash {
             tail.append(DockItem(kind: .trash, url: URL(fileURLWithPath: NSHomeDirectory() + "/.Trash"), name: "Trash"))

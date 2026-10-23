@@ -1,6 +1,11 @@
 import AppKit
 import ApplicationServices
 
+/// Private but long-stable: the window server's ID for an Accessibility
+/// window, needed to take its picture. Used by most window managers.
+@_silgen_name("_AXUIElementGetWindow")
+private func _AXUIElementGetWindow(_ element: AXUIElement, _ id: UnsafeMutablePointer<CGWindowID>) -> AXError
+
 /// Keeps track of minimized windows so the docks can show them as tiles and
 /// bring them back, like the macOS Dock. Needs Accessibility permission;
 /// without it there are no tiles and clicking an app just reopens it.
@@ -13,6 +18,8 @@ final class MinimizedWindows {
         let title: String
         /// Where it was before it was minimized, in AppKit screen coordinates.
         let frame: NSRect?
+        /// The window server's ID, for its preview picture.
+        let windowID: CGWindowID?
         fileprivate let element: AXUIElement
 
         /// The display it was minimized from, if it can tell.
@@ -102,8 +109,10 @@ final class MinimizedWindows {
         windows.removeAll { w in w.pid == pid && !found.contains { CFEqual($0, w.element) } }
         for e in found where !windows.contains(where: { $0.pid == pid && CFEqual($0.element, e) }) {
             let title = attr(e, kAXTitleAttribute) as? String ?? ""
+            var windowID: CGWindowID = 0
+            let hasID = _AXUIElementGetWindow(e, &windowID) == .success
             windows.append(Window(id: nextID, pid: pid, title: title.isEmpty ? "Untitled" : title,
-                                  frame: frame(of: e), element: e))
+                                  frame: frame(of: e), windowID: hasID ? windowID : nil, element: e))
             nextID += 1
         }
         if notify, windows.map(\.id) != before { onChange?() }

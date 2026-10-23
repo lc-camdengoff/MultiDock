@@ -196,6 +196,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return self.controllers.values.map(\.windowZone)
         }
         WindowGuard.shared.sync()
+        WindowPreviews.shared.sync()
         if let old = Updater.takeUpdatedFromVersion(), old != Updater.currentVersion {
             showUpdatedNote(from: old)
         }
@@ -235,6 +236,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         controllers.values.forEach { $0.refreshItems() }
         updateAutoHideTimer()
         WindowGuard.shared.sync()
+        WindowPreviews.shared.sync()
     }
 
     private func layout(for screen: NSScreen) -> DockLayout {

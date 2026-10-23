@@ -59,6 +59,8 @@ final class ConfigStore: ObservableObject {
     @Published var autoUpdate: Bool { didSet { save() } }
     /// Move or shrink other apps' windows so they don't go under a dock.
     @Published var keepWindowsClear: Bool { didSet { save() } }
+    /// Show a picture of each minimized window on its tile.
+    @Published var windowPreviews: Bool { didSet { save() } }
 
     private init() {
         displays = (d.data(forKey: "displayConfigs")).flatMap { try? JSONDecoder().decode([String: DisplayConfig].self, from: $0) } ?? [:]
@@ -69,6 +71,7 @@ final class ConfigStore: ObservableObject {
         hideSystemDock = d.bool(forKey: "hideSystemDock")
         autoUpdate = d.object(forKey: "autoUpdate") as? Bool ?? true
         keepWindowsClear = d.bool(forKey: "keepWindowsClear")
+        windowPreviews = d.bool(forKey: "windowPreviews")
     }
 
     private func save() {
@@ -79,6 +82,7 @@ final class ConfigStore: ObservableObject {
         d.set(hideSystemDock, forKey: "hideSystemDock")
         d.set(autoUpdate, forKey: "autoUpdate")
         d.set(keepWindowsClear, forKey: "keepWindowsClear")
+        d.set(windowPreviews, forKey: "windowPreviews")
         NotificationCenter.default.post(name: .multiDockConfigChanged, object: nil)
     }
 
