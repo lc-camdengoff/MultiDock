@@ -6,6 +6,11 @@ import ApplicationServices
 @_silgen_name("_AXUIElementGetWindow")
 private func _AXUIElementGetWindow(_ element: AXUIElement, _ id: UnsafeMutablePointer<CGWindowID>) -> AXError
 
+func axWindowID(_ element: AXUIElement) -> CGWindowID? {
+    var id: CGWindowID = 0
+    return _AXUIElementGetWindow(element, &id) == .success ? id : nil
+}
+
 /// Keeps track of minimized windows so the docks can show them as tiles and
 /// bring them back, like the macOS Dock. Needs Accessibility permission;
 /// without it there are no tiles and clicking an app just reopens it.
@@ -109,10 +114,8 @@ final class MinimizedWindows {
         windows.removeAll { w in w.pid == pid && !found.contains { CFEqual($0, w.element) } }
         for e in found where !windows.contains(where: { $0.pid == pid && CFEqual($0.element, e) }) {
             let title = attr(e, kAXTitleAttribute) as? String ?? ""
-            var windowID: CGWindowID = 0
-            let hasID = _AXUIElementGetWindow(e, &windowID) == .success
             windows.append(Window(id: nextID, pid: pid, title: title.isEmpty ? "Untitled" : title,
-                                  frame: frame(of: e), windowID: hasID ? windowID : nil, element: e))
+                                  frame: frame(of: e), windowID: axWindowID(e), element: e))
             nextID += 1
         }
         if notify, windows.map(\.id) != before { onChange?() }

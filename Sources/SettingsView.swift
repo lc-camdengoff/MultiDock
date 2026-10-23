@@ -337,6 +337,7 @@ struct ItemRow: View {
 struct GeneralSettingsView: View {
     @ObservedObject private var store = ConfigStore.shared
     @ObservedObject private var guardian = WindowGuard.shared
+    @ObservedObject private var previews = WindowPreviews.shared
     @State private var size: Double = ConfigStore.shared.iconSize
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
 
@@ -362,6 +363,9 @@ struct GeneralSettingsView: View {
                     Text("Allow MultiDock in Privacy & Security → Screen Recording, then quit and reopen MultiDock.")
                         .font(.caption).foregroundStyle(.secondary)
                     Button("Open Settings") { WindowPreviews.openScreenRecordingSettings() }
+                } else if store.windowPreviews, let problem = previews.problem {
+                    Text(problem).font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 } else {
                     Text("Minimized windows show a picture of the window instead of the app's icon, when macOS provides one.")
                         .font(.caption).foregroundStyle(.secondary)
