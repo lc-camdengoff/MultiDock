@@ -92,7 +92,11 @@ final class WindowPreviews {
                                   space: CGColorSpaceCreateDeviceRGB(),
                                   bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
         ctx.draw(image, in: CGRect(x: 0, y: 0, width: n, height: n))
-        let pixels = stride(from: 0, to: px.count, by: 4).map { (r: px[$0], g: px[$0 + 1], b: px[$0 + 2], a: px[$0 + 3]) }
-        return pixels.allSatisfy { $0.a < 8 } || pixels.allSatisfy { max($0.r, $0.g, $0.b) < 8 }
+        var allClear = true, allBlack = true
+        for i in stride(from: 0, to: px.count, by: 4) {
+            if px[i + 3] >= 8 { allClear = false }
+            if px[i] >= 8 || px[i + 1] >= 8 || px[i + 2] >= 8 { allBlack = false }
+        }
+        return allClear || allBlack
     }
 }
