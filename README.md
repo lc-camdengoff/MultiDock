@@ -25,6 +25,7 @@ Requires macOS 14 Sonoma or newer. Works on Apple Silicon and Intel Macs.
 - Minimized windows show up at the end of the dock on the display they were minimized from as their app's icon with a small window badge; click one to bring it back. Clicking an app whose windows are all minimized, or right-clicking it to pick a window, also works. This needs Accessibility permission, the same as Keep windows out of the dock. Turn on **Show window previews** to show a picture of each window instead of its app's icon; that also needs Screen Recording permission, and falls back to the icon when macOS doesn't provide a picture.
 - Right-click any icon for Hide, Quit, **Remove from This Dock** and more. Right-click a running app and choose **Keep in This Dock** to add it.
 - Drop an app or folder onto an empty part of a dock to add it.
+- The Trash shows full when it has something in it, like the macOS Dock. MultiDock asks Finder for this, so macOS asks once whether MultiDock may control Finder.
 
 ## Updates
 

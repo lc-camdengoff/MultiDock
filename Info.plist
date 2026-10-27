@@ -20,6 +20,8 @@
 	<string>11</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>MultiDock asks Finder whether the Trash has anything in it, so its Trash icon can show full or empty.</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSHighResolutionCapable</key>

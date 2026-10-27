@@ -540,7 +540,7 @@ final class DockView: NSView {
             NSWorkspace.shared.open(urls, withApplicationAt: target, configuration: NSWorkspace.OpenConfiguration())
             return true
         case .trash:
-            NSWorkspace.shared.recycle(urls)
+            NSWorkspace.shared.recycle(urls) { _, _ in DockModel.shared.checkTrash() }
             return true
         default:
             return false

@@ -14,13 +14,15 @@ struct DockItem: Equatable {
     var windowID: Int? = nil
     /// A minimized window's tile shows its picture instead of the app's icon.
     var hasPreview = false
+    /// The Trash has something in it.
+    var isFull = false
 
     static let divider = DockItem(kind: .divider)
 
     /// Same identity = same tile, even if the running state differs.
     func sameTile(as other: DockItem) -> Bool {
         kind == other.kind && url == other.url && bundleID == other.bundleID && pinned == other.pinned
-            && windowID == other.windowID && hasPreview == other.hasPreview
+            && windowID == other.windowID && hasPreview == other.hasPreview && isFull == other.isFull
     }
 }
 
@@ -60,6 +62,55 @@ final class DockModel {
         timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
             self?.reloadPinnedIfChanged()
         }
+        trashTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in self?.checkTrash() }
+        checkTrash()
+    }
+
+    // MARK: - Trash
+
+    private var trashFull = false
+    private var checkingTrash = false
+    private var trashTimer: Timer?
+
+    /// Re-checks whether the Trash has anything in it, e.g. after dropping files on it.
+    func checkTrash() {
+        guard !checkingTrash else { return }
+        checkingTrash = true
+        DispatchQueue.global(qos: .utility).async {
+            let full = Self.trashHasItems()
+            DispatchQueue.main.async {
+                self.checkingTrash = false
+                guard let full, full != self.trashFull else { return }
+                self.trashFull = full
+                self.onChange?()
+            }
+        }
+    }
+
+    /// Asks Finder, which counts every volume's Trash; macOS doesn't let apps
+    /// read the Trash folder without Full Disk Access. That needs a one-time
+    /// approval to control Finder, and until then this tries the folder.
+    /// Runs off the main thread, since Finder can be slow to answer.
+    private static func trashHasItems() -> Bool? {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        p.arguments = ["-e", "tell application \"Finder\" to count items of trash"]
+        let out = Pipe()
+        p.standardOutput = out
+        p.standardError = FileHandle.nullDevice
+        if (try? p.run()) != nil {
+            let deadline = Date().addingTimeInterval(5)
+            while p.isRunning, Date() < deadline { usleep(50_000) }
+            if p.isRunning {
+                p.terminate()
+            } else if p.terminationStatus == 0 {
+                let text = String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+                if let count = Int(text.trimmingCharacters(in: .whitespacesAndNewlines)) { return count > 0 }
+            }
+        }
+        let trash = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".Trash")
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: trash.path) else { return nil }
+        return names.contains { $0 != ".DS_Store" }
     }
 
     @objc private func runningAppsChanged() { onChange?() }
@@ -70,7 +121,7 @@ final class DockModel {
     func icon(for item: DockItem) -> NSImage {
         switch item.kind {
         case .trash:
-            return NSImage(named: NSImage.trashEmptyName) ?? NSImage()
+            return NSImage(named: item.isFull ? NSImage.trashFullName : NSImage.trashEmptyName) ?? NSImage()
         case .divider:
             return NSImage()
         case .window:
@@ -247,7 +298,8 @@ final class DockModel {
                             hasPreview: WindowPreviews.shared.image(for: w) != nil)
         }
         if config.showTrash {
-            tail.append(DockItem(kind: .trash, url: URL(fileURLWithPath: NSHomeDirectory() + "/.Trash"), name: "Trash"))
+            tail.append(DockItem(kind: .trash, url: URL(fileURLWithPath: NSHomeDirectory() + "/.Trash"), name: "Trash",
+                                 isFull: trashFull))
         }
         if !tail.isEmpty {
             if !result.isEmpty { result.append(.divider) }
